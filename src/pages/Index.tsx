@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -40,12 +40,39 @@ const modelDistribution = [
   { name: 'GPT-3.5', value: 35, color: '#D946EF' },
 ];
 
+const API_URL = 'https://functions.poehali.dev/228157e5-9d7c-4162-b7f6-c007b6c5fd8d';
+
 const Index = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterModel, setFilterModel] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState<any>(null);
 
-  const filteredDialogs = mockDialogs.filter(dialog => {
+  useEffect(() => {
+    fetchAnalytics();
+  }, []);
+
+  const fetchAnalytics = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch(API_URL);
+      const data = await response.json();
+      setAnalyticsData(data);
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const dialogs = analyticsData?.dialogs || [];
+  const users = analyticsData?.users || [];
+  const tokenStats = analyticsData?.tokenStats || [];
+  const modelDistribution = analyticsData?.modelDistribution || [];
+  const summary = analyticsData?.summary || { totalUsers: 0, premiumUsers: 0, activeDialogs: 0, totalTokens: 0 };
+
+  const filteredDialogs = dialogs.filter((dialog: any) => {
     const matchesSearch = dialog.user.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesModel = filterModel === 'all' || dialog.model === filterModel;
     const matchesStatus = filterStatus === 'all' || dialog.status === filterStatus;
@@ -64,6 +91,17 @@ const Index = () => {
     link.download = `dialogs_${new Date().toISOString().slice(0,10)}.csv`;
     link.click();
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Icon name="Loader2" className="h-12 w-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-lg text-muted-foreground">Загрузка данных...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
@@ -102,8 +140,8 @@ const Index = () => {
                   <p className="text-sm font-medium opacity-90">Всего токенов</p>
                   <Icon name="Zap" className="h-5 w-5 opacity-80" />
                 </div>
-                <div className="text-3xl font-bold">384K</div>
-                <p className="text-xs opacity-75 mt-1">+12.5% за неделю</p>
+                <div className="text-3xl font-bold">{(summary.totalTokens / 1000).toFixed(0)}K</div>
+                <p className="text-xs opacity-75 mt-1">всего использовано</p>
               </Card>
 
               <Card className="p-6 bg-gradient-to-br from-pink-500 to-pink-700 text-white border-0 shadow-lg hover:scale-105 transition-transform">
@@ -111,8 +149,8 @@ const Index = () => {
                   <p className="text-sm font-medium opacity-90">Активных диалогов</p>
                   <Icon name="MessageCircle" className="h-5 w-5 opacity-80" />
                 </div>
-                <div className="text-3xl font-bold">127</div>
-                <p className="text-xs opacity-75 mt-1">+8.3% за день</p>
+                <div className="text-3xl font-bold">{summary.activeDialogs}</div>
+                <p className="text-xs opacity-75 mt-1">активных сейчас</p>
               </Card>
 
               <Card className="p-6 bg-gradient-to-br from-blue-500 to-blue-700 text-white border-0 shadow-lg hover:scale-105 transition-transform">
@@ -120,8 +158,8 @@ const Index = () => {
                   <p className="text-sm font-medium opacity-90">Пользователей</p>
                   <Icon name="Users" className="h-5 w-5 opacity-80" />
                 </div>
-                <div className="text-3xl font-bold">165</div>
-                <p className="text-xs opacity-75 mt-1">+23 за неделю</p>
+                <div className="text-3xl font-bold">{summary.totalUsers}</div>
+                <p className="text-xs opacity-75 mt-1">всего пользователей</p>
               </Card>
 
               <Card className="p-6 bg-gradient-to-br from-orange-500 to-orange-700 text-white border-0 shadow-lg hover:scale-105 transition-transform">
@@ -129,8 +167,8 @@ const Index = () => {
                   <p className="text-sm font-medium opacity-90">Премиум</p>
                   <Icon name="Crown" className="h-5 w-5 opacity-80" />
                 </div>
-                <div className="text-3xl font-bold">48</div>
-                <p className="text-xs opacity-75 mt-1">29% от всех</p>
+                <div className="text-3xl font-bold">{summary.premiumUsers}</div>
+                <p className="text-xs opacity-75 mt-1">{summary.totalUsers > 0 ? Math.round((summary.premiumUsers / summary.totalUsers) * 100) : 0}% от всех</p>
               </Card>
             </div>
 
@@ -141,7 +179,7 @@ const Index = () => {
                   Расход токенов по дням
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <LineChart data={mockTokenData}>
+                  <LineChart data={tokenStats}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                     <XAxis dataKey="date" stroke="#666" />
                     <YAxis stroke="#666" />
@@ -153,7 +191,7 @@ const Index = () => {
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                       }} 
                     />
-                    <Line type="monotone" dataKey="tokens" stroke="#8B5CF6" strokeWidth={3} dot={{ fill: '#8B5CF6', r: 5 }} />
+                    <Line type="monotone" dataKey="total_tokens" stroke="#8B5CF6" strokeWidth={3} dot={{ fill: '#8B5CF6', r: 5 }} />
                   </LineChart>
                 </ResponsiveContainer>
               </Card>
@@ -164,7 +202,7 @@ const Index = () => {
                   Активность пользователей
                 </h3>
                 <ResponsiveContainer width="100%" height={300}>
-                  <BarChart data={mockTokenData}>
+                  <BarChart data={tokenStats}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
                     <XAxis dataKey="date" stroke="#666" />
                     <YAxis stroke="#666" />
@@ -176,7 +214,7 @@ const Index = () => {
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                       }} 
                     />
-                    <Bar dataKey="users" fill="url(#colorGradient)" radius={[8, 8, 0, 0]} />
+                    <Bar dataKey="active_users" fill="url(#colorGradient)" radius={[8, 8, 0, 0]} />
                     <defs>
                       <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="0%" stopColor="#D946EF" />
@@ -239,7 +277,7 @@ const Index = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredDialogs.map((dialog) => (
+                    {filteredDialogs.map((dialog: any) => (
                       <TableRow key={dialog.id} className="hover:bg-purple-50/50 transition-colors">
                         <TableCell className="font-medium">{dialog.user}</TableCell>
                         <TableCell className="text-muted-foreground">{dialog.date}</TableCell>
@@ -285,7 +323,7 @@ const Index = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {mockUsers.map((user) => (
+                    {users.map((user: any) => (
                       <TableRow key={user.id} className="hover:bg-purple-50/50 transition-colors">
                         <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
@@ -293,13 +331,13 @@ const Index = () => {
                             {user.premium && <Icon name="Crown" className="h-4 w-4 text-orange-500" />}
                           </div>
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{user.email}</TableCell>
+                        <TableCell className="text-muted-foreground">{user.email || 'Не указан'}</TableCell>
                         <TableCell>
                           <Badge variant="outline" className="bg-gradient-to-r from-purple-100 to-pink-100 border-purple-300">
-                            {user.totalTokens.toLocaleString()}
+                            {user.total_tokens.toLocaleString()}
                           </Badge>
                         </TableCell>
-                        <TableCell>{user.dialogs}</TableCell>
+                        <TableCell>{user.dialogs_count}</TableCell>
                         <TableCell>
                           <Badge className={user.premium ? 'bg-gradient-to-r from-orange-500 to-orange-600' : 'bg-gray-500'}>
                             {user.premium ? 'Премиум' : 'Базовый'}
@@ -333,8 +371,8 @@ const Index = () => {
                       fill="#8884d8"
                       dataKey="value"
                     >
-                      {modelDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      {modelDistribution.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={entry.name === 'GPT-4' ? '#8B5CF6' : '#D946EF'} />
                       ))}
                     </Pie>
                     <Tooltip />
@@ -348,7 +386,7 @@ const Index = () => {
                   Топ пользователей по токенам
                 </h3>
                 <div className="space-y-4">
-                  {mockUsers.sort((a, b) => b.totalTokens - a.totalTokens).map((user, index) => (
+                  {[...users].sort((a: any, b: any) => b.total_tokens - a.total_tokens).map((user: any, index: number) => (
                     <div key={user.id} className="flex items-center gap-4">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-white ${
                         index === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
@@ -366,11 +404,11 @@ const Index = () => {
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
                             className="bg-gradient-to-r from-purple-600 to-pink-600 h-2 rounded-full transition-all"
-                            style={{ width: `${(user.totalTokens / 70000) * 100}%` }}
+                            style={{ width: `${users.length > 0 ? Math.min((user.total_tokens / Math.max(...users.map((u: any) => u.total_tokens), 1)) * 100, 100) : 0}%` }}
                           />
                         </div>
                       </div>
-                      <span className="font-semibold text-purple-600">{user.totalTokens.toLocaleString()}</span>
+                      <span className="font-semibold text-purple-600">{user.total_tokens.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>

@@ -1,0 +1,45 @@
+{
+  "tests": [
+    {
+      "name": "Test webhook with valid data",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "telegram_id": 123456789,
+        "name": "Test User",
+        "tokens": 1500,
+        "model": "GPT-4",
+        "premium": true
+      },
+      "expectedStatus": 200,
+      "expectedBody": {
+        "success": true
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test webhook without telegram_id",
+      "method": "POST",
+      "path": "/",
+      "body": {
+        "name": "Test User",
+        "tokens": 1500
+      },
+      "expectedStatus": 400,
+      "expectedBody": {
+        "error": "string"
+      },
+      "bodyMatcher": "partial"
+    },
+    {
+      "name": "Test health check",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {
+        "status": "string"
+      },
+      "bodyMatcher": "partial"
+    }
+  ]
+}
