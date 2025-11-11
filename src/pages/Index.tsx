@@ -48,17 +48,28 @@ const Index = () => {
   const [filterStatus, setFilterStatus] = useState('all');
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
   useEffect(() => {
     fetchAnalytics();
-  }, []);
+    
+    if (autoRefresh) {
+      const interval = setInterval(() => {
+        fetchAnalytics();
+      }, 30000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [autoRefresh]);
 
   const fetchAnalytics = async () => {
     try {
-      setLoading(true);
+      if (!analyticsData) setLoading(true);
       const response = await fetch(API_URL);
       const data = await response.json();
       setAnalyticsData(data);
+      setLastUpdate(new Date());
     } catch (error) {
       console.error('Failed to fetch analytics:', error);
     } finally {
@@ -107,10 +118,40 @@ const Index = () => {
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-pink-50 to-blue-50">
       <div className="container mx-auto p-6 max-w-7xl">
         <div className="mb-8 animate-fade-in">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent mb-2">
-            Панель управления AI-советником
-          </h1>
-          <p className="text-muted-foreground text-lg">Мониторинг диалогов и расхода токенов в реальном времени</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-blue-600 bg-clip-text text-transparent mb-2">
+                Панель управления AI-советником
+              </h1>
+              <p className="text-muted-foreground text-lg">Мониторинг диалогов и расхода токенов в реальном времени</p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={autoRefresh ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setAutoRefresh(!autoRefresh)}
+                  className={autoRefresh ? 'bg-gradient-to-r from-purple-600 to-pink-600' : ''}
+                >
+                  <Icon name={autoRefresh ? 'Pause' : 'Play'} className="h-4 w-4 mr-2" />
+                  {autoRefresh ? 'Авто' : 'Пауза'}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchAnalytics}
+                >
+                  <Icon name="RefreshCw" className="h-4 w-4 mr-2" />
+                  Обновить
+                </Button>
+              </div>
+              {lastUpdate && (
+                <div className="text-sm text-muted-foreground">
+                  Обновлено: {lastUpdate.toLocaleTimeString('ru-RU')}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         <Tabs defaultValue="dashboard" className="space-y-6">
